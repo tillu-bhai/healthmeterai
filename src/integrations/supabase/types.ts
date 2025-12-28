@@ -14,16 +14,222 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          blood_type: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          gender: string | null
+          height_cm: number | null
+          id: string
+          updated_at: string
+          user_id: string
+          weight_kg: number | null
+        }
+        Insert: {
+          blood_type?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
+          id?: string
+          updated_at?: string
+          user_id: string
+          weight_kg?: number | null
+        }
+        Update: {
+          blood_type?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan_id: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan_id?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_allergies: {
+        Row: {
+          allergy_name: string
+          created_at: string
+          id: string
+          reaction: string | null
+          severity: string | null
+          user_id: string
+        }
+        Insert: {
+          allergy_name: string
+          created_at?: string
+          id?: string
+          reaction?: string | null
+          severity?: string | null
+          user_id: string
+        }
+        Update: {
+          allergy_name?: string
+          created_at?: string
+          id?: string
+          reaction?: string | null
+          severity?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_conditions: {
+        Row: {
+          condition_name: string
+          created_at: string
+          diagnosed_date: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          condition_name: string
+          created_at?: string
+          diagnosed_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          condition_name?: string
+          created_at?: string
+          diagnosed_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_medications: {
+        Row: {
+          created_at: string
+          dosage: string | null
+          end_date: string | null
+          frequency: string | null
+          id: string
+          is_current: boolean | null
+          medication_name: string
+          notes: string | null
+          start_date: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dosage?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_current?: boolean | null
+          medication_name: string
+          notes?: string | null
+          start_date?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dosage?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_current?: boolean | null
+          medication_name?: string
+          notes?: string | null
+          start_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user" | "plus" | "pro"
+      subscription_status:
+        | "active"
+        | "canceled"
+        | "past_due"
+        | "trialing"
+        | "incomplete"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +356,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user", "plus", "pro"],
+      subscription_status: [
+        "active",
+        "canceled",
+        "past_due",
+        "trialing",
+        "incomplete",
+      ],
+    },
   },
 } as const
