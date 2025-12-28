@@ -1,4 +1,5 @@
 import { SearchBar } from "./SearchBar";
+import { PopularSearchCarousel } from "./PopularSearchCarousel";
 import { Sparkles, Shield, BookOpen, Database } from "lucide-react";
 
 interface HeroSectionProps {
@@ -13,14 +14,6 @@ const features = [
   { icon: Sparkles, label: "AI-Powered" },
 ];
 
-const popularSearches = [
-  "Diabetes Type 2",
-  "Metformin",
-  "Hypertension",
-  "COVID-19 Vaccine",
-  "Migraine Symptoms",
-];
-
 export const HeroSection = ({ onSearch, isLoading }: HeroSectionProps) => {
   return (
     <section className="relative overflow-hidden">
@@ -29,7 +22,7 @@ export const HeroSection = ({ onSearch, isLoading }: HeroSectionProps) => {
       <div className="absolute top-20 right-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-10 left-10 w-96 h-96 bg-coral-500/10 rounded-full blur-3xl" />
       
-      <div className="container relative py-20 md:py-28 lg:py-32">
+      <div className="container relative py-16 md:py-24 lg:py-28">
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-slide-up">
@@ -54,22 +47,8 @@ export const HeroSection = ({ onSearch, isLoading }: HeroSectionProps) => {
             <SearchBar onSearch={onSearch} isLoading={isLoading} size="large" />
           </div>
 
-          {/* Popular Searches */}
-          <div className="flex flex-wrap justify-center gap-2 mb-12 animate-slide-up stagger-4">
-            <span className="text-sm text-muted-foreground mr-2">Popular:</span>
-            {popularSearches.map((term) => (
-              <button
-                key={term}
-                onClick={() => onSearch(term)}
-                className="px-3 py-1.5 rounded-lg text-sm bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
-              >
-                {term}
-              </button>
-            ))}
-          </div>
-
           {/* Features */}
-          <div className="flex flex-wrap justify-center gap-6 animate-slide-up stagger-5">
+          <div className="flex flex-wrap justify-center gap-6 mb-10 animate-slide-up stagger-4">
             {features.map((feature) => (
               <div 
                 key={feature.label}
@@ -81,6 +60,11 @@ export const HeroSection = ({ onSearch, isLoading }: HeroSectionProps) => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Full-width Carousel Section */}
+      <div className="relative animate-slide-up stagger-5 pb-12">
+        <PopularSearchCarousel onSearch={onSearch} />
       </div>
     </section>
   );
