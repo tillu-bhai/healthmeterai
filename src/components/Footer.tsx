@@ -11,11 +11,11 @@ export const Footer = () => {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2.5 mb-4 group">
-              <div className="h-9 w-9 rounded-xl gradient-hero flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform">
+              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform metallic-shine">
                 <Activity className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="font-display font-bold text-xl text-foreground">
-                Medi<span className="text-gradient">Scope</span>
+                Medi<span className="text-primary">Scope</span>
               </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
