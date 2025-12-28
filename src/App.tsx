@@ -18,6 +18,7 @@ import Contact from "./pages/Contact";
 import Profile from "./pages/Profile";
 import Community from "./pages/Community";
 import CommunityChat from "./pages/CommunityChat";
+import Inbox from "./pages/Inbox";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/community" element={<Community />} />
             <Route path="/community/:communityId" element={<CommunityChat />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

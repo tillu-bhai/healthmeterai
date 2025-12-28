@@ -1,4 +1,4 @@
-import { Activity, Menu, X, LogOut, User, Users } from "lucide-react";
+import { Activity, Menu, X, LogOut, User, Users, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -80,6 +80,10 @@ export const Header = () => {
                 <DropdownMenuItem onClick={() => navigate("/profile")}>
                   <User className="h-4 w-4 mr-2" />
                   Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/inbox")}>
+                  <Inbox className="h-4 w-4 mr-2" />
+                  Inbox
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/community")}>
                   <Users className="h-4 w-4 mr-2" />

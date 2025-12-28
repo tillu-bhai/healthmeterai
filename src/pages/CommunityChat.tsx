@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +15,8 @@ import {
   Play,
   Pause,
   X,
-  MoreVertical
+  MoreVertical,
+  RefreshCw
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
@@ -27,6 +28,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MembersSheet } from "@/components/MembersSheet";
+import { FilePreview } from "@/components/FilePreview";
 
 interface Message {
   id: string;
@@ -66,11 +69,16 @@ const CommunityChat = () => {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFilePreview, setPendingFilePreview] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const generalFileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,12 +93,63 @@ const CommunityChat = () => {
     getUser();
   }, [navigate]);
 
+  // Auto-refresh every 100ms (10 times per second)
+  const fetchMessagesQuiet = useCallback(async () => {
+    if (!communityId) return;
+
+    const { data, error } = await supabase
+      .from("community_messages")
+      .select("*")
+      .eq("community_id", communityId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching messages:", error);
+      return;
+    }
+
+    setMessages(prev => {
+      // Only update if there are new messages
+      if (data && data.length !== prev.length) {
+        // Fetch profiles for new users
+        const existingUserIds = new Set(Object.keys(profiles));
+        const newUserIds = [...new Set(data.map(m => m.user_id))]
+          .filter(id => !existingUserIds.has(id));
+        
+        if (newUserIds.length > 0) {
+          supabase
+            .from("profiles")
+            .select("user_id, full_name, avatar_url")
+            .in("user_id", newUserIds)
+            .then(({ data: profilesData }) => {
+              if (profilesData) {
+                setProfiles(prev => {
+                  const newProfiles = { ...prev };
+                  profilesData.forEach(p => {
+                    newProfiles[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+                  });
+                  return newProfiles;
+                });
+              }
+            });
+        }
+        return data;
+      }
+      return prev;
+    });
+  }, [communityId, profiles]);
+
   useEffect(() => {
     if (!communityId || !user) return;
 
     fetchCommunity();
     fetchMessages();
     fetchMemberCount();
+
+    // Set up auto-refresh interval (100ms = 10 times per second)
+    autoRefreshIntervalRef.current = setInterval(() => {
+      fetchMessagesQuiet();
+    }, 100);
 
     // Subscribe to realtime messages
     const channel = supabase
@@ -127,8 +186,11 @@ const CommunityChat = () => {
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
       }
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
     };
-  }, [communityId, user]);
+  }, [communityId, user, fetchMessagesQuiet]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -199,6 +261,13 @@ const CommunityChat = () => {
     }
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchMessages(), fetchMemberCount()]);
+    setIsRefreshing(false);
+    toast.success("Refreshed!");
+  };
+
   const uploadMedia = async (file: File, type: string): Promise<string | null> => {
     if (!user || !communityId) return null;
 
@@ -227,18 +296,30 @@ const CommunityChat = () => {
     messageType: string = 'text', 
     mediaUrl: string | null = null
   ) => {
-    if ((!content && !mediaUrl) || !user || !communityId) return;
+    if ((!content && !mediaUrl && !pendingFile) || !user || !communityId) return;
 
     setIsSending(true);
     try {
+      let finalMediaUrl = mediaUrl;
+      let finalMessageType = messageType;
+      let finalContent = content;
+
+      // If there's a pending file, upload it first
+      if (pendingFile) {
+        finalMediaUrl = await uploadMedia(pendingFile, pendingFile.type.startsWith('image/') ? 'image' : 'file');
+        finalMessageType = pendingFile.type.startsWith('image/') ? 'image' : 'file';
+        finalContent = content || (pendingFile.type.startsWith('image/') ? '📷 Image' : `📎 ${pendingFile.name}`);
+        clearPendingFile();
+      }
+
       const { error } = await supabase
         .from("community_messages")
         .insert({
           community_id: communityId,
           user_id: user.id,
-          content: content || '',
-          message_type: messageType,
-          media_url: mediaUrl,
+          content: finalContent || '',
+          message_type: finalMessageType,
+          media_url: finalMediaUrl,
         });
 
       if (error) throw error;
@@ -258,31 +339,36 @@ const CommunityChat = () => {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, isImage: boolean = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (isImage && !file.type.startsWith('image/')) {
       toast.error("Please select an image file");
       return;
     }
 
-    const mediaUrl = await uploadMedia(file, 'image');
-    if (mediaUrl) {
-      await handleSendMessage('📷 Image', 'image', mediaUrl);
+    setPendingFile(file);
+    
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPendingFilePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPendingFilePreview(null);
     }
+    
     setShowAttachMenu(false);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const mediaUrl = await uploadMedia(file, 'file');
-    if (mediaUrl) {
-      await handleSendMessage(`📎 ${file.name}`, 'file', mediaUrl);
-    }
-    setShowAttachMenu(false);
+  const clearPendingFile = () => {
+    setPendingFile(null);
+    setPendingFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (generalFileInputRef.current) generalFileInputRef.current.value = '';
   };
 
   const startRecording = async () => {
@@ -388,6 +474,10 @@ const CommunityChat = () => {
     return profiles[userId] || { full_name: null, avatar_url: null };
   };
 
+  const handleStartDM = (userId: string, userName: string) => {
+    navigate(`/inbox?user=${userId}&name=${encodeURIComponent(userName)}`);
+  };
+
   const renderMessage = (message: Message) => {
     const isOwn = message.user_id === user?.id;
     const profile = getProfileInfo(message.user_id);
@@ -408,11 +498,9 @@ const CommunityChat = () => {
           </AvatarFallback>
         </Avatar>
         <div className={`max-w-[75%] ${isOwn ? "text-right" : ""}`}>
-          {!isOwn && (
-            <p className="text-xs text-muted-foreground mb-1 px-1">
-              {profile.full_name || "Anonymous"}
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground mb-1 px-1">
+            {profile.full_name || "Anonymous"}
+          </p>
           <div
             className={`inline-block px-3 py-2 rounded-2xl ${
               isOwn
@@ -463,7 +551,7 @@ const CommunityChat = () => {
             {message.message_type === 'text' && (
               <p className="text-sm whitespace-pre-wrap">{detectLinks(message.content)}</p>
             )}
-            {message.message_type !== 'image' && message.message_type !== 'voice' && message.message_type !== 'file' && (
+            {message.message_type !== 'image' && message.message_type !== 'voice' && message.message_type !== 'file' && message.message_type !== 'text' && (
               <p className="text-sm whitespace-pre-wrap">{detectLinks(message.content)}</p>
             )}
           </div>
@@ -493,6 +581,22 @@ const CommunityChat = () => {
         className="hidden"
       />
 
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleFileSelect(e, true)}
+        className="hidden"
+      />
+      <input
+        ref={generalFileInputRef}
+        type="file"
+        accept="*/*"
+        onChange={(e) => handleFileSelect(e, false)}
+        className="hidden"
+      />
+
       {/* Chat Header */}
       <header className="sticky top-0 z-50 glass border-b border-border/30">
         <div className="container flex items-center justify-between h-16 px-4">
@@ -516,18 +620,33 @@ const CommunityChat = () => {
               </div>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate("/community")}>
-                Leave Chat
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <MembersSheet 
+              communityId={communityId || ''} 
+              currentUserId={user?.id}
+              onStartDM={handleStartDM}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/community")}>
+                  Leave Chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
@@ -549,6 +668,17 @@ const CommunityChat = () => {
       {/* Message Input */}
       <div className="sticky bottom-0 glass border-t border-border/30 p-3">
         <div className="container max-w-3xl mx-auto">
+          {/* Pending File Preview */}
+          {pendingFile && (
+            <div className="mb-3">
+              <FilePreview 
+                file={pendingFile} 
+                preview={pendingFilePreview || undefined}
+                onRemove={clearPendingFile}
+              />
+            </div>
+          )}
+          
           {isRecording ? (
             <div className="flex items-center gap-3 bg-secondary/50 rounded-full px-4 py-2">
               <Button variant="ghost" size="icon" onClick={cancelRecording}>
@@ -577,26 +707,12 @@ const CommunityChat = () => {
                     <ImageIcon className="h-4 w-4 mr-2" />
                     Image
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = '*/*';
-                    input.onchange = (e) => handleFileUpload(e as any);
-                    input.click();
-                  }}>
+                  <DropdownMenuItem onClick={() => generalFileInputRef.current?.click()}>
                     <Paperclip className="h-4 w-4 mr-2" />
                     File
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
 
               <Input
                 value={newMessage}
@@ -607,7 +723,7 @@ const CommunityChat = () => {
                 disabled={isSending}
               />
 
-              {newMessage.trim() ? (
+              {newMessage.trim() || pendingFile ? (
                 <Button 
                   onClick={() => handleSendMessage()} 
                   disabled={isSending} 
