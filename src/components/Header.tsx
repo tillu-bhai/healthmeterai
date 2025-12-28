@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { ThemeToggle } from "./ThemeToggle";
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,11 +33,11 @@ export const Header = () => {
       <div className="container flex items-center justify-between h-16">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="h-10 w-10 rounded-xl gradient-hero flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform animate-glow-pulse">
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform animate-glow-pulse metallic-shine">
             <Activity className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="font-display font-bold text-xl text-foreground">
-            Medi<span className="text-gradient">Scope</span>
+            Medi<span className="text-primary">Scope</span>
           </span>
         </Link>
 
@@ -61,6 +62,8 @@ export const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center gap-3">
+          <ThemeToggle />
+          
           {user ? (
             <>
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 glass-button rounded-full">
@@ -90,9 +93,9 @@ export const Header = () => {
                 Sign In
               </Button>
               <Button 
-                variant="default" 
+                variant="hero" 
                 size="sm" 
-                className="hidden md:inline-flex gradient-hero text-primary-foreground shadow-glow hover:shadow-lg transition-all metallic-shine"
+                className="hidden md:inline-flex"
                 onClick={() => navigate("/auth")}
               >
                 Get Started
@@ -116,21 +119,27 @@ export const Header = () => {
       {isMenuOpen && (
         <div className="md:hidden glass border-t border-border/30 animate-slide-up">
           <nav className="container py-4 flex flex-col gap-1">
-            {["Diseases", "Drugs", "Symptoms", "Research"].map((item) => (
-              <a 
-                key={item}
-                href="#" 
+            {[
+              { name: "Diseases", path: "/diseases" },
+              { name: "Drugs", path: "/drugs" },
+              { name: "Symptoms", path: "/symptoms" },
+              { name: "Research", path: "/research" },
+            ].map((item) => (
+              <Link 
+                key={item.name}
+                to={item.path}
                 className="px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-lg transition-colors"
+                onClick={() => setIsMenuOpen(false)}
               >
-                {item}
-              </a>
+                {item.name}
+              </Link>
             ))}
             <div className="flex gap-2 mt-4 px-4">
               {user ? (
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex-1 glass-button border-0"
+                  className="flex-1"
                   onClick={handleSignOut}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -141,15 +150,15 @@ export const Header = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 glass-button border-0"
+                    className="flex-1"
                     onClick={() => navigate("/auth")}
                   >
                     Sign In
                   </Button>
                   <Button 
-                    variant="default" 
+                    variant="hero" 
                     size="sm" 
-                    className="flex-1 gradient-hero text-primary-foreground"
+                    className="flex-1"
                     onClick={() => navigate("/auth")}
                   >
                     Get Started

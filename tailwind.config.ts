@@ -52,20 +52,10 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         metallic: {
-          1: "hsl(var(--metallic-1))",
-          2: "hsl(var(--metallic-2))",
-          3: "hsl(var(--metallic-3))",
+          blue: "hsl(var(--metallic-blue))",
+          "blue-light": "hsl(var(--metallic-blue-light))",
+          "blue-dark": "hsl(var(--metallic-blue-dark))",
           shine: "hsl(var(--metallic-shine))",
-        },
-        cyan: {
-          400: "hsl(var(--cyan-400))",
-          500: "hsl(var(--cyan-500))",
-          600: "hsl(var(--cyan-600))",
-        },
-        purple: {
-          400: "hsl(var(--purple-400))",
-          500: "hsl(var(--purple-500))",
-          600: "hsl(var(--purple-600))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
