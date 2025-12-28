@@ -14,7 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -50,17 +51,21 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        teal: {
-          50: "hsl(var(--teal-50))",
-          100: "hsl(var(--teal-100))",
-          500: "hsl(var(--teal-500))",
-          600: "hsl(var(--teal-600))",
-          700: "hsl(var(--teal-700))",
+        metallic: {
+          1: "hsl(var(--metallic-1))",
+          2: "hsl(var(--metallic-2))",
+          3: "hsl(var(--metallic-3))",
+          shine: "hsl(var(--metallic-shine))",
         },
-        coral: {
-          400: "hsl(var(--coral-400))",
-          500: "hsl(var(--coral-500))",
-          600: "hsl(var(--coral-600))",
+        cyan: {
+          400: "hsl(var(--cyan-400))",
+          500: "hsl(var(--cyan-500))",
+          600: "hsl(var(--cyan-600))",
+        },
+        purple: {
+          400: "hsl(var(--purple-400))",
+          500: "hsl(var(--purple-500))",
+          600: "hsl(var(--purple-600))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -79,12 +84,15 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "calc(var(--radius) + 16px)",
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
         'md': 'var(--shadow-md)',
         'lg': 'var(--shadow-lg)',
         'glow': 'var(--shadow-glow)',
+        'glow-purple': 'var(--shadow-glow-purple)',
+        'inner-shine': 'var(--shadow-inner-shine)',
       },
       keyframes: {
         "accordion-down": {
