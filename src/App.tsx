@@ -15,6 +15,9 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Disclaimer from "./pages/Disclaimer";
 import Contact from "./pages/Contact";
+import Profile from "./pages/Profile";
+import Community from "./pages/Community";
+import CommunityChat from "./pages/CommunityChat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +41,9 @@ const App = () => (
             <Route path="/terms" element={<Terms />} />
             <Route path="/disclaimer" element={<Disclaimer />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/community/:communityId" element={<CommunityChat />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -1,10 +1,11 @@
-import { Activity, Menu, X, LogOut, User } from "lucide-react";
+import { Activity, Menu, X, LogOut, User, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { ThemeToggle } from "./ThemeToggle";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,6 +49,7 @@ export const Header = () => {
             { name: "Drugs", path: "/drugs" },
             { name: "Symptoms", path: "/symptoms" },
             { name: "Research", path: "/research" },
+            { name: "Community", path: "/community" },
           ].map((item) => (
             <Link 
               key={item.name}
@@ -65,23 +67,30 @@ export const Header = () => {
           <ThemeToggle />
           
           {user ? (
-            <>
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 glass-button rounded-full">
-                <User className="h-4 w-4 text-primary" />
-                <span className="text-sm text-foreground truncate max-w-32">
-                  {user.email?.split('@')[0]}
-                </span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleSignOut}
-                className="hidden md:inline-flex text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="hidden md:flex items-center gap-2 px-3 py-1.5">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-foreground truncate max-w-32">
+                    {user.email?.split('@')[0]}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/community")}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Community
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <>
               <Button 
