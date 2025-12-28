@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Users, Plus, Search, MessageCircle, UserPlus, LogOut, Lock, Globe, Image as ImageIcon } from "lucide-react";
+import { Users, Plus, Search, MessageCircle, UserPlus, LogOut, Lock, Globe, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -37,6 +37,8 @@ const CommunityPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [membershipIds, setMembershipIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   const [newCommunity, setNewCommunity] = useState({
@@ -95,7 +97,7 @@ const CommunityPage = () => {
 
   const fetchCommunities = async (userId?: string) => {
     try {
-      // Fetch all communities (visible to everyone now)
+      // Fetch all communities
       const { data: allCommunities, error } = await supabase
         .from("communities")
         .select("*")
@@ -104,7 +106,7 @@ const CommunityPage = () => {
       if (error) throw error;
       setCommunities(allCommunities || []);
 
-      // Fetch user's communities if logged in
+      // Fetch user's memberships if logged in
       if (userId) {
         const { data: memberData, error: memberError } = await supabase
           .from("community_members")
@@ -113,30 +115,42 @@ const CommunityPage = () => {
 
         if (memberError) {
           console.error("Error fetching member data:", memberError);
+          setMembershipIds(new Set());
           setMyCommunities([]);
           return;
         }
 
-        const memberCommunityIds = memberData?.map(m => m.community_id) || [];
+        const memberCommunityIdList = memberData?.map(m => m.community_id) || [];
+        const memberSet = new Set(memberCommunityIdList);
+        setMembershipIds(memberSet);
 
-        if (memberCommunityIds.length > 0) {
-          const { data: userCommunities, error: ucError } = await supabase
-            .from("communities")
-            .select("*")
-            .in("id", memberCommunityIds);
-
-          if (ucError) throw ucError;
-          setMyCommunities(userCommunities || []);
-        } else {
-          setMyCommunities([]);
-        }
+        // Filter "my communities" = member OR creator
+        const myComms = (allCommunities || []).filter(
+          c => memberSet.has(c.id) || c.created_by === userId
+        );
+        setMyCommunities(myComms);
       } else {
+        setMembershipIds(new Set());
         setMyCommunities([]);
       }
     } catch (error) {
       console.error("Error fetching communities:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetchCommunities(session?.user?.id);
+      toast.success("Communities refreshed");
+    } catch (error) {
+      console.error("Error refreshing communities:", error);
+      toast.error("Failed to refresh");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -284,7 +298,20 @@ const CommunityPage = () => {
     }
   };
 
-  const openCommunityChat = (communityId: string) => {
+  const openCommunityChat = async (communityId: string, communityCreator: string) => {
+    // Self-heal: ensure creator has a membership row before navigating
+    if (user && user.id === communityCreator) {
+      try {
+        await supabase
+          .from("community_members")
+          .upsert(
+            { community_id: communityId, user_id: user.id, role: "admin" },
+            { onConflict: "community_id,user_id", ignoreDuplicates: true }
+          );
+      } catch (err) {
+        // Ignore errors - they might already be a member
+      }
+    }
     navigate(`/community/${communityId}`);
   };
 
@@ -293,8 +320,8 @@ const CommunityPage = () => {
     c.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const isMember = (communityId: string) => {
-    return myCommunities.some(c => c.id === communityId);
+  const isMember = (communityId: string, creatorId: string) => {
+    return membershipIds.has(communityId) || (user?.id === creatorId);
   };
 
   return (
@@ -403,15 +430,26 @@ const CommunityPage = () => {
             </Dialog>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-8">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search communities..."
-              className="pl-10"
-            />
+          {/* Search + Refresh */}
+          <div className="flex gap-2 mb-8">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search communities..."
+                className="pl-10"
+              />
+            </div>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleRefresh} 
+              disabled={isRefreshing}
+              title="Refresh communities"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
 
           {/* My Communities */}
@@ -454,7 +492,7 @@ const CommunityPage = () => {
                       <Button 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => openCommunityChat(community.id)}
+                        onClick={() => openCommunityChat(community.id, community.created_by)}
                       >
                         <MessageCircle className="h-4 w-4 mr-1" />
                         Open Chat
@@ -514,11 +552,11 @@ const CommunityPage = () => {
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                       {community.description || "No description"}
                     </p>
-                    {isMember(community.id) ? (
+                    {isMember(community.id, community.created_by) ? (
                       <Button 
                         size="sm" 
                         className="w-full"
-                        onClick={() => openCommunityChat(community.id)}
+                        onClick={() => openCommunityChat(community.id, community.created_by)}
                       >
                         <MessageCircle className="h-4 w-4 mr-1" />
                         Open Chat
