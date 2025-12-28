@@ -49,12 +49,24 @@ const CommunityPage = () => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      fetchCommunities(session?.user?.id);
+      if (session?.user) {
+        fetchCommunities(session.user.id);
+      } else {
+        fetchCommunities();
+      }
     };
     getUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      // Refetch communities when auth state changes
+      setTimeout(() => {
+        if (session?.user) {
+          fetchCommunities(session.user.id);
+        } else {
+          fetchCommunities();
+        }
+      }, 0);
     });
 
     // Subscribe to realtime community updates
@@ -67,8 +79,10 @@ const CommunityPage = () => {
           schema: 'public',
           table: 'communities',
         },
-        () => {
-          fetchCommunities(user?.id);
+        async () => {
+          // Get fresh user session for realtime updates
+          const { data: { session } } = await supabase.auth.getSession();
+          fetchCommunities(session?.user?.id);
         }
       )
       .subscribe();
@@ -97,7 +111,11 @@ const CommunityPage = () => {
           .select("community_id")
           .eq("user_id", userId);
 
-        if (memberError) throw memberError;
+        if (memberError) {
+          console.error("Error fetching member data:", memberError);
+          setMyCommunities([]);
+          return;
+        }
 
         const memberCommunityIds = memberData?.map(m => m.community_id) || [];
 
@@ -109,7 +127,11 @@ const CommunityPage = () => {
 
           if (ucError) throw ucError;
           setMyCommunities(userCommunities || []);
+        } else {
+          setMyCommunities([]);
         }
+      } else {
+        setMyCommunities([]);
       }
     } catch (error) {
       console.error("Error fetching communities:", error);
