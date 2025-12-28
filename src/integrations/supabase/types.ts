@@ -85,6 +85,9 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_read: boolean | null
+          media_url: string | null
+          message_type: string
           user_id: string
         }
         Insert: {
@@ -92,6 +95,9 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_read?: boolean | null
+          media_url?: string | null
+          message_type?: string
           user_id: string
         }
         Update: {
@@ -99,6 +105,9 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_read?: boolean | null
+          media_url?: string | null
+          message_type?: string
           user_id?: string
         }
         Relationships: [

@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Plus, Search, MessageCircle, UserPlus, LogOut } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Users, Plus, Search, MessageCircle, UserPlus, LogOut, Lock, Globe, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -34,11 +35,14 @@ const CommunityPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const [newCommunity, setNewCommunity] = useState({
     name: "",
     description: "",
+    is_public: true,
   });
 
   useEffect(() => {
@@ -53,16 +57,34 @@ const CommunityPage = () => {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    // Subscribe to realtime community updates
+    const channel = supabase
+      .channel('communities-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'communities',
+        },
+        () => {
+          fetchCommunities(user?.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchCommunities = async (userId?: string) => {
     try {
-      // Fetch all public communities
+      // Fetch all communities (visible to everyone now)
       const { data: allCommunities, error } = await supabase
         .from("communities")
         .select("*")
-        .eq("is_public", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -96,6 +118,40 @@ const CommunityPage = () => {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadCommunityImage = async (communityId: string): Promise<string | null> => {
+    if (!imageFile || !user) return null;
+
+    const fileExt = imageFile.name.split('.').pop();
+    const fileName = `${communityId}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('community-images')
+      .upload(fileName, imageFile);
+
+    if (uploadError) {
+      console.error("Error uploading image:", uploadError);
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('community-images')
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
+  };
+
   const handleCreateCommunity = async () => {
     if (!user) {
       toast.error("Please sign in to create a community");
@@ -116,11 +172,23 @@ const CommunityPage = () => {
           name: newCommunity.name,
           description: newCommunity.description,
           created_by: user.id,
+          is_public: newCommunity.is_public,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Upload image if selected
+      if (imageFile) {
+        const imageUrl = await uploadCommunityImage(community.id);
+        if (imageUrl) {
+          await supabase
+            .from("communities")
+            .update({ image_url: imageUrl })
+            .eq("id", community.id);
+        }
+      }
 
       // Add creator as admin member
       const { error: memberError } = await supabase
@@ -135,7 +203,9 @@ const CommunityPage = () => {
 
       toast.success("Community created successfully!");
       setDialogOpen(false);
-      setNewCommunity({ name: "", description: "" });
+      setNewCommunity({ name: "", description: "", is_public: true });
+      setImageFile(null);
+      setImagePreview(null);
       fetchCommunities(user.id);
     } catch (error) {
       console.error("Error creating community:", error);
@@ -229,11 +299,31 @@ const CommunityPage = () => {
                   Create Community
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create New Community</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
+                  {/* Image Upload */}
+                  <div className="flex justify-center">
+                    <label className="cursor-pointer">
+                      <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-border hover:border-primary transition-colors">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="Community" className="h-full w-full object-cover" />
+                        ) : (
+                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-center text-xs text-muted-foreground">Click to add community photo</p>
+
                   <div>
                     <Label htmlFor="name">Community Name</Label>
                     <Input
@@ -254,6 +344,35 @@ const CommunityPage = () => {
                       className="mt-1"
                     />
                   </div>
+
+                  {/* Public/Private Toggle */}
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
+                    <div className="flex items-center gap-3">
+                      {newCommunity.is_public ? (
+                        <Globe className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Lock className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <div>
+                        <p className="font-medium text-sm">
+                          {newCommunity.is_public ? "Public Community" : "Private Community"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {newCommunity.is_public 
+                            ? "Anyone can view and join" 
+                            : "Only invited members can join"
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={newCommunity.is_public}
+                      onCheckedChange={(checked) => 
+                        setNewCommunity(prev => ({ ...prev, is_public: checked }))
+                      }
+                    />
+                  </div>
+
                   <Button onClick={handleCreateCommunity} disabled={isCreating} className="w-full">
                     {isCreating ? "Creating..." : "Create Community"}
                   </Button>
@@ -284,10 +403,26 @@ const CommunityPage = () => {
                 {myCommunities.map((community) => (
                   <Card key={community.id} className="glass-card p-5 hover:shadow-glow transition-all">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Users className="h-6 w-6 text-primary" />
+                      <div className="h-12 w-12 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
+                        {community.image_url ? (
+                          <img src={community.image_url} alt={community.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Users className="h-6 w-6 text-primary" />
+                        )}
                       </div>
-                      <Badge variant="secondary">Member</Badge>
+                      <div className="flex items-center gap-2">
+                        {community.is_public ? (
+                          <Badge variant="outline" className="text-xs">
+                            <Globe className="h-3 w-3 mr-1" />
+                            Public
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            <Lock className="h-3 w-3 mr-1" />
+                            Private
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <h3 className="font-display font-semibold text-foreground mb-1">{community.name}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
@@ -334,11 +469,23 @@ const CommunityPage = () => {
                 {filteredCommunities.map((community) => (
                   <Card key={community.id} className="glass-card p-5 hover:shadow-glow transition-all">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Users className="h-6 w-6 text-primary" />
+                      <div className="h-12 w-12 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
+                        {community.image_url ? (
+                          <img src={community.image_url} alt={community.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <Users className="h-6 w-6 text-primary" />
+                        )}
                       </div>
-                      {community.is_public && (
-                        <Badge variant="outline" className="text-xs">Public</Badge>
+                      {community.is_public ? (
+                        <Badge variant="outline" className="text-xs">
+                          <Globe className="h-3 w-3 mr-1" />
+                          Public
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          <Lock className="h-3 w-3 mr-1" />
+                          Private
+                        </Badge>
                       )}
                     </div>
                     <h3 className="font-display font-semibold text-foreground mb-1">{community.name}</h3>
