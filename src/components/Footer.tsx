@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 export const Footer = () => {
   return (
     <footer className="glass border-t border-border/30 mt-auto relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px]" />
       
       <div className="container relative py-12">
@@ -28,13 +27,10 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4">Resources</h4>
             <ul className="space-y-2.5 text-sm">
-              {["Disease Library", "Drug Database", "Symptom Checker", "Research Papers"].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                    {item}
-                  </a>
-                </li>
-              ))}
+              <li><Link to="/diseases" className="text-muted-foreground hover:text-foreground transition-colors">Disease Library</Link></li>
+              <li><Link to="/drugs" className="text-muted-foreground hover:text-foreground transition-colors">Drug Database</Link></li>
+              <li><Link to="/symptoms" className="text-muted-foreground hover:text-foreground transition-colors">Symptom Checker</Link></li>
+              <li><Link to="/research" className="text-muted-foreground hover:text-foreground transition-colors">Research Papers</Link></li>
             </ul>
           </div>
 
@@ -42,13 +38,10 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4">Our Sources</h4>
             <ul className="space-y-2.5 text-sm">
-              {["WHO", "NIH", "PubMed", "CDC"].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                    {item}
-                  </a>
-                </li>
-              ))}
+              <li><Link to="/source/who" className="text-muted-foreground hover:text-foreground transition-colors">WHO</Link></li>
+              <li><Link to="/source/nih" className="text-muted-foreground hover:text-foreground transition-colors">NIH</Link></li>
+              <li><Link to="/source/pubmed" className="text-muted-foreground hover:text-foreground transition-colors">PubMed</Link></li>
+              <li><Link to="/source/cdc" className="text-muted-foreground hover:text-foreground transition-colors">CDC</Link></li>
             </ul>
           </div>
 
@@ -56,13 +49,10 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4">Legal</h4>
             <ul className="space-y-2.5 text-sm">
-              {["Privacy Policy", "Terms of Service", "Medical Disclaimer", "Contact"].map((item) => (
-                <li key={item}>
-                  <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                    {item}
-                  </a>
-                </li>
-              ))}
+              <li><Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
+              <li><Link to="/disclaimer" className="text-muted-foreground hover:text-foreground transition-colors">Medical Disclaimer</Link></li>
+              <li><Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
             </ul>
           </div>
         </div>

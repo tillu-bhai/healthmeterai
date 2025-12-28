@@ -42,15 +42,20 @@ export const Header = () => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1">
-          {["Diseases", "Drugs", "Symptoms", "Research"].map((item) => (
-            <a 
-              key={item}
-              href="#" 
+          {[
+            { name: "Diseases", path: "/diseases" },
+            { name: "Drugs", path: "/drugs" },
+            { name: "Symptoms", path: "/symptoms" },
+            { name: "Research", path: "/research" },
+          ].map((item) => (
+            <Link 
+              key={item.name}
+              to={item.path}
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group"
             >
-              {item}
+              {item.name}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-primary group-hover:w-1/2 transition-all duration-300" />
-            </a>
+            </Link>
           ))}
         </nav>
 
