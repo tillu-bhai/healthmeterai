@@ -1,1 +1,4 @@
 project_id = "caexgvqqvslvaohcgsmy"
+
+[functions.health-search]
+verify_jwt = false
