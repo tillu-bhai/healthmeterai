@@ -16,7 +16,8 @@ import {
   Pause,
   X,
   MoreVertical,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
@@ -26,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MembersSheet } from "@/components/MembersSheet";
@@ -266,6 +268,44 @@ const CommunityChat = () => {
     await Promise.all([fetchMessages(), fetchMemberCount()]);
     setIsRefreshing(false);
     toast.success("Refreshed!");
+  };
+
+  const handleDeleteCommunity = async () => {
+    if (!community || !user || community.created_by !== user.id) {
+      toast.error("Only the community creator can delete this community");
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to delete "${community.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      // Delete all messages first
+      await supabase
+        .from("community_messages")
+        .delete()
+        .eq("community_id", communityId);
+
+      // Delete all members
+      await supabase
+        .from("community_members")
+        .delete()
+        .eq("community_id", communityId);
+
+      // Delete the community
+      const { error } = await supabase
+        .from("communities")
+        .delete()
+        .eq("id", communityId);
+
+      if (error) throw error;
+
+      toast.success("Community deleted successfully");
+      navigate("/community");
+    } catch (error) {
+      console.error("Error deleting community:", error);
+      toast.error("Failed to delete community");
+    }
   };
 
   const uploadMedia = async (file: File, type: string): Promise<string | null> => {
@@ -648,6 +688,18 @@ const CommunityChat = () => {
                 <DropdownMenuItem onClick={() => navigate("/community")}>
                   Leave Chat
                 </DropdownMenuItem>
+                {community && user && community.created_by === user.id && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={handleDeleteCommunity}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Community
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

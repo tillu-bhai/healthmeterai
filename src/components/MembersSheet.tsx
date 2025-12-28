@@ -19,6 +19,7 @@ interface Member {
   profile?: {
     full_name: string | null;
     avatar_url: string | null;
+    email: string | null;
   };
 }
 
@@ -47,16 +48,16 @@ export const MembersSheet = ({ communityId, currentUserId, onStartDM, trigger }:
         const userIds = membersData.map(m => m.user_id);
         const { data: profilesData } = await supabase
           .from("profiles")
-          .select("user_id, full_name, avatar_url")
+          .select("user_id, full_name, avatar_url, email")
           .in("user_id", userIds);
 
         const profileMap = new Map(
-          profilesData?.map(p => [p.user_id, { full_name: p.full_name, avatar_url: p.avatar_url }])
+          profilesData?.map(p => [p.user_id, { full_name: p.full_name, avatar_url: p.avatar_url, email: p.email }])
         );
 
         const membersWithProfiles = membersData.map(m => ({
           ...m,
-          profile: profileMap.get(m.user_id) || { full_name: null, avatar_url: null }
+          profile: profileMap.get(m.user_id) || { full_name: null, avatar_url: null, email: null }
         }));
 
         setMembers(membersWithProfiles);
@@ -97,12 +98,12 @@ export const MembersSheet = ({ communityId, currentUserId, onStartDM, trigger }:
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={member.profile?.avatar_url || undefined} />
                     <AvatarFallback className="bg-primary/10 text-primary">
-                      {member.profile?.full_name?.charAt(0) || "U"}
+                      {(member.profile?.full_name || member.profile?.email || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      {member.profile?.full_name || "Anonymous"}
+                      {member.profile?.full_name || member.profile?.email?.split('@')[0] || "User"}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">
                       {member.role}
@@ -113,7 +114,7 @@ export const MembersSheet = ({ communityId, currentUserId, onStartDM, trigger }:
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8"
-                      onClick={() => onStartDM(member.user_id, member.profile?.full_name || "User")}
+                      onClick={() => onStartDM(member.user_id, member.profile?.full_name || member.profile?.email?.split('@')[0] || "User")}
                     >
                       <MessageSquare className="h-4 w-4" />
                     </Button>
