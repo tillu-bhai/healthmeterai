@@ -63,7 +63,7 @@ const CommunityChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [profiles, setProfiles] = useState<Record<string, { full_name: string | null; avatar_url: string | null }>>({});
+  const [profiles, setProfiles] = useState<Record<string, { full_name: string | null; avatar_url: string | null; email: string | null }>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
@@ -121,14 +121,14 @@ const CommunityChat = () => {
         if (newUserIds.length > 0) {
           supabase
             .from("profiles")
-            .select("user_id, full_name, avatar_url")
+            .select("user_id, full_name, avatar_url, email")
             .in("user_id", newUserIds)
             .then(({ data: profilesData }) => {
               if (profilesData) {
                 setProfiles(prev => {
                   const newProfiles = { ...prev };
                   profilesData.forEach(p => {
-                    newProfiles[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+                    newProfiles[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url, email: p.email };
                   });
                   return newProfiles;
                 });
@@ -170,12 +170,12 @@ const CommunityChat = () => {
           if (!profiles[newMsg.user_id]) {
             const { data: profile } = await supabase
               .from("profiles")
-              .select("full_name, avatar_url")
+              .select("full_name, avatar_url, email")
               .eq("user_id", newMsg.user_id)
               .single();
             
             if (profile) {
-              setProfiles(prev => ({ ...prev, [newMsg.user_id]: profile }));
+              setProfiles(prev => ({ ...prev, [newMsg.user_id]: { full_name: profile.full_name, avatar_url: profile.avatar_url, email: profile.email } }));
             }
           }
           setMessages(prev => [...prev, newMsg]);
@@ -250,13 +250,13 @@ const CommunityChat = () => {
     if (userIds.length > 0) {
       const { data: profilesData } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url")
+        .select("user_id, full_name, avatar_url, email")
         .in("user_id", userIds);
 
       if (profilesData) {
-        const profileMap: Record<string, { full_name: string | null; avatar_url: string | null }> = {};
+        const profileMap: Record<string, { full_name: string | null; avatar_url: string | null; email: string | null }> = {};
         profilesData.forEach(p => {
-          profileMap[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+          profileMap[p.user_id] = { full_name: p.full_name, avatar_url: p.avatar_url, email: p.email };
         });
         setProfiles(profileMap);
       }
@@ -511,7 +511,7 @@ const CommunityChat = () => {
   };
 
   const getProfileInfo = (userId: string) => {
-    return profiles[userId] || { full_name: null, avatar_url: null };
+    return profiles[userId] || { full_name: null, avatar_url: null, email: null };
   };
 
   const handleStartDM = (userId: string, userName: string) => {
@@ -534,12 +534,12 @@ const CommunityChat = () => {
         <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarImage src={profile.avatar_url || undefined} />
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
-            {profile.full_name?.charAt(0) || "U"}
+            {(profile.full_name || profile.email || "U").charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className={`max-w-[75%] ${isOwn ? "text-right" : ""}`}>
           <p className="text-xs text-muted-foreground mb-1 px-1">
-            {profile.full_name || "Anonymous"}
+            {profile.full_name || profile.email?.split('@')[0] || "User"}
           </p>
           <div
             className={`inline-block px-3 py-2 rounded-2xl ${
