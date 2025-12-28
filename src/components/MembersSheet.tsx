@@ -26,9 +26,10 @@ interface MembersSheetProps {
   communityId: string;
   currentUserId: string | undefined;
   onStartDM: (userId: string, userName: string) => void;
+  trigger?: React.ReactNode;
 }
 
-export const MembersSheet = ({ communityId, currentUserId, onStartDM }: MembersSheetProps) => {
+export const MembersSheet = ({ communityId, currentUserId, onStartDM, trigger }: MembersSheetProps) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -70,9 +71,11 @@ export const MembersSheet = ({ communityId, currentUserId, onStartDM }: MembersS
   return (
     <Sheet onOpenChange={(open) => open && fetchMembers()}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Users className="h-5 w-5" />
-        </Button>
+        {trigger || (
+          <Button variant="ghost" size="icon">
+            <Users className="h-5 w-5" />
+          </Button>
+        )}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
