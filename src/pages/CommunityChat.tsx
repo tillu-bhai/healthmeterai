@@ -616,7 +616,16 @@ const CommunityChat = () => {
                 <h1 className="font-display font-semibold text-foreground text-sm">
                   {community?.name || "Loading..."}
                 </h1>
-                <p className="text-xs text-muted-foreground">{memberCount} members</p>
+                <MembersSheet 
+                  communityId={communityId || ''} 
+                  currentUserId={user?.id}
+                  onStartDM={handleStartDM}
+                  trigger={
+                    <button className="text-xs text-primary hover:underline cursor-pointer">
+                      {memberCount} members
+                    </button>
+                  }
+                />
               </div>
             </div>
           </div>
@@ -629,11 +638,6 @@ const CommunityChat = () => {
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-            <MembersSheet 
-              communityId={communityId || ''} 
-              currentUserId={user?.id}
-              onStartDM={handleStartDM}
-            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
