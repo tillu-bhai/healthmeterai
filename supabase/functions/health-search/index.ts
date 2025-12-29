@@ -68,6 +68,26 @@ Your task: Take the input JSON and return the SAME JSON with improved wording in
 
 Return ONLY the improved JSON, no explanations.`;
 
+// Input validation constants
+const MAX_QUERY_LENGTH = 500;
+const MIN_QUERY_LENGTH = 2;
+
+// Helper function to sanitize query input
+function sanitizeQuery(input: string): string {
+  // Remove control characters and normalize whitespace
+  return input
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/\s+/g, ' ')            // Normalize whitespace
+    .trim();
+}
+
+// Helper function to validate query contains only printable characters
+function isValidQuery(query: string): boolean {
+  // Allow letters, numbers, spaces, and common punctuation
+  const validPattern = /^[\p{L}\p{N}\p{P}\p{Z}]+$/u;
+  return validPattern.test(query);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -76,6 +96,7 @@ serve(async (req) => {
   try {
     const { query } = await req.json();
     
+    // Validate query exists and is a string
     if (!query || typeof query !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Query is required' }),
@@ -83,18 +104,44 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing health search query:', query);
+    // Sanitize the query
+    const sanitizedQuery = sanitizeQuery(query);
+
+    // Validate query length
+    if (sanitizedQuery.length < MIN_QUERY_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: 'Query is too short. Please provide a more specific health question.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (sanitizedQuery.length > MAX_QUERY_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Query is too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate query contains only valid characters
+    if (!isValidQuery(sanitizedQuery)) {
+      return new Response(
+        JSON.stringify({ error: 'Query contains invalid characters. Please use only letters, numbers, and common punctuation.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Processing health search query (length: ' + sanitizedQuery.length + ')');
 
     if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY is not configured');
+      console.error('Configuration error: Required API key not set');
       return new Response(
-        JSON.stringify({ error: 'Lovable AI not configured' }),
+        JSON.stringify({ error: 'Service configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // ============ STAGE 1: Research with Lovable AI (Gemini) ============
-    console.log('Stage 1: Fetching accurate research data from Lovable AI...');
+    console.log('Stage 1: Fetching research data...');
     
     const researchResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -106,7 +153,7 @@ serve(async (req) => {
         model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'system', content: researchPrompt },
-          { role: 'user', content: `Provide comprehensive, accurate, and verified health information about: ${query}
+          { role: 'user', content: `Provide comprehensive, accurate, and verified health information about: ${sanitizedQuery}
 
 Include:
 - Current medical guidelines and recommendations
@@ -120,8 +167,7 @@ Include:
     });
 
     if (!researchResponse.ok) {
-      const errorText = await researchResponse.text();
-      console.error('Lovable AI error:', researchResponse.status, errorText);
+      console.error('Research service error:', researchResponse.status);
       
       if (researchResponse.status === 429) {
         return new Response(
@@ -131,13 +177,13 @@ Include:
       }
       if (researchResponse.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
+          JSON.stringify({ error: 'Service temporarily unavailable.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
-        JSON.stringify({ error: 'Research AI service error' }),
+        JSON.stringify({ error: 'Service error. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -228,7 +274,7 @@ Include:
       console.log('GROQ_API_KEY not set, skipping enhancement stage');
     }
 
-    console.log('Successfully processed query:', query);
+    console.log('Query processed successfully');
 
     return new Response(
       JSON.stringify(researchJson),
@@ -236,10 +282,9 @@ Include:
     );
 
   } catch (error) {
-    console.error('Error in health-search function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error processing request');
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'An error occurred. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
