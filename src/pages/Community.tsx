@@ -9,11 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Users, Plus, Search, MessageCircle, UserPlus, LogOut, Lock, Globe, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { Users, Plus, Search, MessageCircle, UserPlus, LogOut, Lock, Globe, Image as ImageIcon, RefreshCw, LogIn } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 
 interface Community {
   id: string;
@@ -28,7 +28,7 @@ interface Community {
 }
 
 const CommunityPage = () => {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user } = useGoogleAuth();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [myCommunities, setMyCommunities] = useState<Community[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,52 +48,12 @@ const CommunityPage = () => {
   });
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchCommunities(session.user.id);
-      } else {
-        fetchCommunities();
-      }
-    };
-    getUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-      // Refetch communities when auth state changes
-      setTimeout(() => {
-        if (session?.user) {
-          fetchCommunities(session.user.id);
-        } else {
-          fetchCommunities();
-        }
-      }, 0);
-    });
-
-    // Subscribe to realtime community updates
-    const channel = supabase
-      .channel('communities-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'communities',
-        },
-        async () => {
-          // Get fresh user session for realtime updates
-          const { data: { session } } = await supabase.auth.getSession();
-          fetchCommunities(session?.user?.id);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    if (user) {
+      fetchCommunities(user.id);
+    } else {
+      fetchCommunities();
+    }
+  }, [user]);
 
   const fetchCommunities = async (userId?: string) => {
     try {
@@ -143,8 +103,7 @@ const CommunityPage = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await fetchCommunities(session?.user?.id);
+      await fetchCommunities(user?.id);
       toast.success("Communities refreshed");
     } catch (error) {
       console.error("Error refreshing communities:", error);
@@ -299,8 +258,14 @@ const CommunityPage = () => {
   };
 
   const openCommunityChat = async (communityId: string, communityCreator: string) => {
+    if (!user) {
+      toast.error("Please sign in to access community chat");
+      navigate("/auth");
+      return;
+    }
+
     // Self-heal: ensure creator has a membership row before navigating
-    if (user && user.id === communityCreator) {
+    if (user.id === communityCreator) {
       try {
         await supabase
           .from("community_members")
@@ -323,6 +288,31 @@ const CommunityPage = () => {
   const isMember = (communityId: string, creatorId: string) => {
     return membershipIds.has(communityId) || (user?.id === creatorId);
   };
+
+  // Show login prompt if not logged in
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 container py-12 flex items-center justify-center">
+          <Card className="glass-card p-8 max-w-md text-center">
+            <Users className="h-16 w-16 text-primary mx-auto mb-4" />
+            <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+              Join the Community
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              Sign in to connect with health communities, share experiences, and support each other.
+            </p>
+            <Button variant="hero" onClick={() => navigate("/auth")} className="w-full">
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In to Continue
+            </Button>
+          </Card>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -453,7 +443,7 @@ const CommunityPage = () => {
           </div>
 
           {/* My Communities */}
-          {user && myCommunities.length > 0 && (
+          {myCommunities.length > 0 && (
             <div className="mb-12">
               <h2 className="font-display text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
@@ -490,20 +480,23 @@ const CommunityPage = () => {
                     </p>
                     <div className="flex gap-2">
                       <Button 
+                        variant="hero" 
                         size="sm" 
                         className="flex-1"
                         onClick={() => openCommunityChat(community.id, community.created_by)}
                       >
                         <MessageCircle className="h-4 w-4 mr-1" />
-                        Open Chat
+                        Chat
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => handleLeaveCommunity(community.id)}
-                      >
-                        <LogOut className="h-4 w-4" />
-                      </Button>
+                      {community.created_by !== user?.id && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleLeaveCommunity(community.id)}
+                        >
+                          <LogOut className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -513,17 +506,30 @@ const CommunityPage = () => {
 
           {/* All Communities */}
           <div>
-            <h2 className="font-display text-xl font-semibold text-foreground mb-4">
+            <h2 className="font-display text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
               Discover Communities
             </h2>
             
             {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
-            ) : filteredCommunities.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No communities found. Create the first one!</p>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="glass-card p-5 animate-pulse">
+                    <div className="h-12 w-12 rounded-xl bg-secondary mb-3" />
+                    <div className="h-4 w-2/3 bg-secondary rounded mb-2" />
+                    <div className="h-3 w-full bg-secondary rounded mb-4" />
+                    <div className="h-8 w-full bg-secondary rounded" />
+                  </Card>
+                ))}
               </div>
+            ) : filteredCommunities.length === 0 ? (
+              <Card className="glass-card p-8 text-center">
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-display font-semibold text-foreground mb-2">No communities found</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {searchQuery ? "Try a different search term" : "Be the first to create a community!"}
+                </p>
+              </Card>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredCommunities.map((community) => (
@@ -536,17 +542,19 @@ const CommunityPage = () => {
                           <Users className="h-6 w-6 text-primary" />
                         )}
                       </div>
-                      {community.is_public ? (
-                        <Badge variant="outline" className="text-xs">
-                          <Globe className="h-3 w-3 mr-1" />
-                          Public
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">
-                          <Lock className="h-3 w-3 mr-1" />
-                          Private
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {community.is_public ? (
+                          <Badge variant="outline" className="text-xs">
+                            <Globe className="h-3 w-3 mr-1" />
+                            Public
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            <Lock className="h-3 w-3 mr-1" />
+                            Private
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <h3 className="font-display font-semibold text-foreground mb-1">{community.name}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
@@ -554,6 +562,7 @@ const CommunityPage = () => {
                     </p>
                     {isMember(community.id, community.created_by) ? (
                       <Button 
+                        variant="hero" 
                         size="sm" 
                         className="w-full"
                         onClick={() => openCommunityChat(community.id, community.created_by)}
@@ -563,8 +572,8 @@ const CommunityPage = () => {
                       </Button>
                     ) : (
                       <Button 
+                        variant="outline" 
                         size="sm" 
-                        variant="outline"
                         className="w-full"
                         onClick={() => handleJoinCommunity(community.id)}
                       >
@@ -579,7 +588,7 @@ const CommunityPage = () => {
           </div>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );

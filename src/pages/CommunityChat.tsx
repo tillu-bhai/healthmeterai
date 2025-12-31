@@ -17,12 +17,13 @@ import {
   X,
   MoreVertical,
   RefreshCw,
-  Trash2
+  Trash2,
+  LogIn
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MembersSheet } from "@/components/MembersSheet";
 import { FilePreview } from "@/components/FilePreview";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 
 interface Message {
   id: string;
@@ -58,7 +60,7 @@ interface Community {
 
 const CommunityChat = () => {
   const { communityId } = useParams();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user } = useGoogleAuth();
   const [community, setCommunity] = useState<Community | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -82,18 +84,6 @@ const CommunityChat = () => {
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate("/auth");
-        return;
-      }
-      setUser(session.user);
-    };
-    getUser();
-  }, [navigate]);
 
   // Auto-refresh every 100ms (10 times per second)
   const fetchMessagesQuiet = useCallback(async () => {
@@ -500,7 +490,7 @@ const CommunityChat = () => {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary underline hover:no-underline"
+            className="text-primary underline hover:text-primary/80"
           >
             {part}
           </a>
@@ -510,298 +500,336 @@ const CommunityChat = () => {
     });
   };
 
-  const getProfileInfo = (userId: string) => {
-    return profiles[userId] || { full_name: null, avatar_url: null, email: null };
+  const getDisplayName = (userId: string) => {
+    const profile = profiles[userId];
+    if (profile?.full_name) return profile.full_name;
+    if (profile?.email) return profile.email.split('@')[0];
+    // For Google auth users, use the current user's name if it's their message
+    if (user && userId === user.id) return user.name;
+    return "User";
   };
 
-  const handleStartDM = (userId: string, userName: string) => {
-    navigate(`/inbox?user=${userId}&name=${encodeURIComponent(userName)}`);
+  const getAvatar = (userId: string) => {
+    const profile = profiles[userId];
+    if (profile?.avatar_url) return profile.avatar_url;
+    // For Google auth users, use the current user's picture if it's their message
+    if (user && userId === user.id) return user.picture;
+    return null;
   };
 
-  const renderMessage = (message: Message) => {
-    const isOwn = message.user_id === user?.id;
-    const profile = getProfileInfo(message.user_id);
-    const time = new Date(message.created_at).toLocaleTimeString([], { 
-      hour: "2-digit", 
-      minute: "2-digit" 
-    });
-
+  // Show login prompt if not logged in
+  if (!user) {
     return (
-      <div
-        key={message.id}
-        className={`flex gap-2 ${isOwn ? "flex-row-reverse" : ""}`}
-      >
-        <Avatar className="h-8 w-8 flex-shrink-0">
-          <AvatarImage src={profile.avatar_url || undefined} />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs">
-            {(profile.full_name || profile.email || "U").charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className={`max-w-[75%] ${isOwn ? "text-right" : ""}`}>
-          <p className="text-xs text-muted-foreground mb-1 px-1">
-            {profile.full_name || profile.email?.split('@')[0] || "User"}
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="glass-card p-8 max-w-md text-center">
+          <Users className="h-16 w-16 text-primary mx-auto mb-4" />
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+            Sign In Required
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            Please sign in to access community chat.
           </p>
-          <div
-            className={`inline-block px-3 py-2 rounded-2xl ${
-              isOwn
-                ? "bg-primary text-primary-foreground rounded-tr-sm"
-                : "bg-secondary text-secondary-foreground rounded-tl-sm"
-            }`}
-          >
-            {message.message_type === 'image' && message.media_url && (
-              <div className="mb-2">
-                <img 
-                  src={message.media_url} 
-                  alt="Shared image" 
-                  className="max-w-full rounded-lg max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(message.media_url!, '_blank')}
-                />
-              </div>
-            )}
-            {message.message_type === 'voice' && message.media_url && (
-              <div className="flex items-center gap-2 min-w-[150px]">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => handlePlayAudio(message.media_url!)}
-                >
-                  {playingAudio === message.media_url ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </Button>
-                <div className="flex-1 h-1 bg-current/20 rounded-full">
-                  <div className="h-full w-0 bg-current rounded-full" />
-                </div>
-              </div>
-            )}
-            {message.message_type === 'file' && message.media_url && (
-              <a 
-                href={message.media_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:underline"
-              >
-                <Paperclip className="h-4 w-4" />
-                <span className="text-sm">{message.content}</span>
-              </a>
-            )}
-            {message.message_type === 'text' && (
-              <p className="text-sm whitespace-pre-wrap">{detectLinks(message.content)}</p>
-            )}
-            {message.message_type !== 'image' && message.message_type !== 'voice' && message.message_type !== 'file' && message.message_type !== 'text' && (
-              <p className="text-sm whitespace-pre-wrap">{detectLinks(message.content)}</p>
-            )}
-          </div>
-          <div className={`flex items-center gap-1 mt-1 px-1 ${isOwn ? "justify-end" : ""}`}>
-            <span className="text-[10px] text-muted-foreground">{time}</span>
-            {isOwn && (
-              <span className="text-primary">
-                {message.is_read ? (
-                  <CheckCheck className="h-3 w-3" />
-                ) : (
-                  <Check className="h-3 w-3" />
-                )}
-              </span>
-            )}
-          </div>
-        </div>
+          <Button variant="hero" onClick={() => navigate("/auth")} className="w-full">
+            <LogIn className="h-4 w-4 mr-2" />
+            Sign In to Continue
+          </Button>
+        </Card>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Hidden audio element for voice playback */}
-      <audio 
-        ref={audioRef} 
-        onEnded={() => setPlayingAudio(null)}
-        className="hidden"
-      />
-
-      {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={(e) => handleFileSelect(e, true)}
-        className="hidden"
-      />
-      <input
-        ref={generalFileInputRef}
-        type="file"
-        accept="*/*"
-        onChange={(e) => handleFileSelect(e, false)}
-        className="hidden"
-      />
-
-      {/* Chat Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border/30">
-        <div className="container flex items-center justify-between h-16 px-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/community")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center">
-                {community?.image_url ? (
-                  <img src={community.image_url} alt={community.name} className="h-full w-full object-cover" />
-                ) : (
-                  <Users className="h-5 w-5 text-primary" />
-                )}
-              </div>
-              <div>
-                <h1 className="font-display font-semibold text-foreground text-sm">
-                  {community?.name || "Loading..."}
-                </h1>
-                <MembersSheet 
-                  communityId={communityId || ''} 
-                  currentUserId={user?.id}
-                  onStartDM={handleStartDM}
-                  trigger={
-                    <button className="text-xs text-primary hover:underline cursor-pointer">
-                      {memberCount} members
-                    </button>
-                  }
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate("/community")}>
-                  Leave Chat
-                </DropdownMenuItem>
-                {community && user && community.created_by === user.id && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={handleDeleteCommunity}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Community
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-
-      {/* Messages Area */}
-      <main className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="max-w-3xl mx-auto space-y-3">
-          {messages.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No messages yet. Start the conversation!</p>
-            </div>
-          ) : (
-            messages.map(renderMessage)
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </main>
-
-      {/* Message Input */}
-      <div className="sticky bottom-0 glass border-t border-border/30 p-3">
-        <div className="container max-w-3xl mx-auto">
-          {/* Pending File Preview */}
-          {pendingFile && (
-            <div className="mb-3">
-              <FilePreview 
-                file={pendingFile} 
-                preview={pendingFilePreview || undefined}
-                onRemove={clearPendingFile}
-              />
-            </div>
-          )}
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header */}
+      <div className="sticky top-0 z-50 glass border-b border-border/30">
+        <div className="container flex items-center gap-3 h-16">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigate("/community")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           
+          <div className="h-10 w-10 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center">
+            {community?.image_url ? (
+              <img src={community.image_url} alt={community.name} className="h-full w-full object-cover" />
+            ) : (
+              <Users className="h-5 w-5 text-primary" />
+            )}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display font-semibold text-foreground truncate">
+              {community?.name || "Loading..."}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
+            </p>
+          </div>
+
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+
+          {community && (
+            <MembersSheet 
+              communityId={community.id} 
+              currentUserId={user?.id}
+              onStartDM={() => {}}
+            />
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleManualRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </DropdownMenuItem>
+              {community && user?.id === community.created_by && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={handleDeleteCommunity}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Community
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <Users className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+          </div>
+        ) : (
+          messages.map((message) => {
+            const isOwn = message.user_id === user?.id;
+            const displayName = getDisplayName(message.user_id);
+            const avatarUrl = getAvatar(message.user_id);
+            
+            return (
+              <div
+                key={message.id}
+                className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}
+              >
+                {!isOwn && (
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={avatarUrl || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {displayName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                
+                <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                  {!isOwn && (
+                    <p className="text-xs text-muted-foreground mb-1 px-1">
+                      {displayName}
+                    </p>
+                  )}
+                  
+                  <div
+                    className={`rounded-2xl px-4 py-2 ${
+                      isOwn
+                        ? 'bg-primary text-primary-foreground rounded-br-sm'
+                        : 'glass-card rounded-bl-sm'
+                    }`}
+                  >
+                    {message.message_type === 'image' && message.media_url && (
+                      <img 
+                        src={message.media_url} 
+                        alt="Shared image" 
+                        className="rounded-lg max-w-full mb-2 cursor-pointer hover:opacity-90"
+                        onClick={() => window.open(message.media_url!, '_blank')}
+                      />
+                    )}
+                    
+                    {message.message_type === 'voice' && message.media_url && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handlePlayAudio(message.media_url!)}
+                        >
+                          {playingAudio === message.media_url ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div className="flex-1 h-1 bg-secondary rounded-full">
+                          <div className="h-full w-0 bg-primary rounded-full" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {message.message_type === 'file' && message.media_url && (
+                      <a 
+                        href={message.media_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm hover:underline mb-2"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        Download File
+                      </a>
+                    )}
+                    
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {detectLinks(message.content)}
+                    </p>
+                    
+                    <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <span className={`text-[10px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {isOwn && (
+                        message.is_read ? (
+                          <CheckCheck className="h-3 w-3 text-primary-foreground/70" />
+                        ) : (
+                          <Check className="h-3 w-3 text-primary-foreground/70" />
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {isOwn && (
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarImage src={user?.picture || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* File Preview */}
+      {pendingFile && (
+        <FilePreview 
+          file={pendingFile} 
+          preview={pendingFilePreview || undefined} 
+          onRemove={clearPendingFile} 
+        />
+      )}
+
+      {/* Input */}
+      <div className="sticky bottom-0 glass border-t border-border/30 p-4">
+        <div className="container max-w-4xl mx-auto">
           {isRecording ? (
-            <div className="flex items-center gap-3 bg-secondary/50 rounded-full px-4 py-2">
+            <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={cancelRecording}>
                 <X className="h-5 w-5 text-destructive" />
               </Button>
               <div className="flex-1 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                <div className="h-3 w-3 bg-destructive rounded-full animate-pulse" />
                 <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
-                <span className="text-xs text-muted-foreground">Recording...</span>
               </div>
-              <Button variant="default" size="icon" onClick={stopRecording}>
-                <Send className="h-4 w-4" />
+              <Button variant="hero" size="icon" onClick={stopRecording}>
+                <Send className="h-5 w-5" />
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {/* Attachment Menu */}
-              <DropdownMenu open={showAttachMenu} onOpenChange={setShowAttachMenu}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="flex-shrink-0">
-                    <Paperclip className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Image
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => generalFileInputRef.current?.click()}>
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    File
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
+              <div className="relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setShowAttachMenu(!showAttachMenu)}
+                >
+                  <Paperclip className="h-5 w-5" />
+                </Button>
+                
+                {showAttachMenu && (
+                  <div className="absolute bottom-full left-0 mb-2 glass-card rounded-lg p-2 flex flex-col gap-1 min-w-[140px]">
+                    <button
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-md transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      Image
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary rounded-md transition-colors"
+                      onClick={() => generalFileInputRef.current?.click()}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      File
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, true)}
+              />
+              <input
+                ref={generalFileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, false)}
+              />
+              
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type a message..."
-                className="flex-1 rounded-full"
+                className="flex-1"
                 disabled={isSending}
               />
-
-              {newMessage.trim() || pendingFile ? (
-                <Button 
-                  onClick={() => handleSendMessage()} 
-                  disabled={isSending} 
-                  size="icon"
-                  className="flex-shrink-0 rounded-full"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={startRecording}
-                  className="flex-shrink-0"
-                >
-                  <Mic className="h-5 w-5" />
-                </Button>
-              )}
+              
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={startRecording}
+              >
+                <Mic className="h-5 w-5" />
+              </Button>
+              
+              <Button 
+                variant="hero" 
+                size="icon"
+                onClick={() => handleSendMessage()}
+                disabled={isSending || (!newMessage.trim() && !pendingFile)}
+              >
+                <Send className="h-5 w-5" />
+              </Button>
             </div>
           )}
         </div>
       </div>
+
+      <audio ref={audioRef} onEnded={() => setPlayingAudio(null)} className="hidden" />
     </div>
   );
 };
