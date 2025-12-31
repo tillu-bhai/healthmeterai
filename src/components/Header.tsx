@@ -1,31 +1,19 @@
 import { Activity, Menu, X, LogOut, User, Users, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { ThemeToggle } from "./ThemeToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const { user, signOut } = useGoogleAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    signOut();
     navigate("/");
   };
 
@@ -70,9 +58,14 @@ export const Header = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="hidden md:flex items-center gap-2 px-3 py-1.5">
-                  <User className="h-4 w-4 text-primary" />
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={user.picture} alt={user.name} />
+                    <AvatarFallback className="text-xs">
+                      {user.name?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="text-sm text-foreground truncate max-w-32">
-                    {user.email?.split('@')[0]}
+                    {user.name?.split(' ')[0] || user.email?.split('@')[0]}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -137,6 +130,7 @@ export const Header = () => {
               { name: "Drugs", path: "/drugs" },
               { name: "Symptoms", path: "/symptoms" },
               { name: "Research", path: "/research" },
+              { name: "Community", path: "/community" },
             ].map((item) => (
               <Link 
                 key={item.name}
