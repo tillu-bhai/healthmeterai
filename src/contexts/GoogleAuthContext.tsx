@@ -16,7 +16,7 @@ interface GoogleAuthContextType {
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
 
-const GOOGLE_CLIENT_ID = "1042740307142-95cptcq3kga26su5si94015h39q6f2gg.apps.googleusercontent.com"; // User needs to replace this
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "1042740307142-95cptcq3kga26su5si94015h39q6f2gg.apps.googleusercontent.com";
 const STORAGE_KEY = "google_user";
 
 declare global {
