@@ -18,7 +18,8 @@ import Disclaimer from "./pages/Disclaimer";
 import Contact from "./pages/Contact";
 import Profile from "./pages/Profile";
 import Community from "./pages/Community";
-import CommunityChat from "./pages/CommunityChat";
+import CommunityFeed from "./pages/CommunityFeed";
+import PostDetail from "./pages/PostDetail";
 import Inbox from "./pages/Inbox";
 import NotFound from "./pages/NotFound";
 
@@ -46,7 +47,8 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/community" element={<Community />} />
-            <Route path="/community/:communityId" element={<CommunityChat />} />
+            <Route path="/community/:communityId" element={<CommunityFeed />} />
+            <Route path="/community/:communityId/post/:postId" element={<PostDetail />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

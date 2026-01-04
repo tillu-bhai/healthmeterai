@@ -257,25 +257,11 @@ const CommunityPage = () => {
     }
   };
 
-  const openCommunityChat = async (communityId: string, communityCreator: string) => {
+  const openCommunity = (communityId: string) => {
     if (!user) {
-      toast.error("Please sign in to access community chat");
+      toast.error("Please sign in to access community");
       navigate("/auth");
       return;
-    }
-
-    // Self-heal: ensure creator has a membership row before navigating
-    if (user.id === communityCreator) {
-      try {
-        await supabase
-          .from("community_members")
-          .upsert(
-            { community_id: communityId, user_id: user.id, role: "admin" },
-            { onConflict: "community_id,user_id", ignoreDuplicates: true }
-          );
-      } catch (err) {
-        // Ignore errors - they might already be a member
-      }
     }
     navigate(`/community/${communityId}`);
   };
@@ -483,10 +469,10 @@ const CommunityPage = () => {
                         variant="hero" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => openCommunityChat(community.id, community.created_by)}
+                        onClick={() => openCommunity(community.id)}
                       >
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                        Chat
+                        <Users className="h-4 w-4 mr-1" />
+                        View
                       </Button>
                       {community.created_by !== user?.id && (
                         <Button 
@@ -565,10 +551,10 @@ const CommunityPage = () => {
                         variant="hero" 
                         size="sm" 
                         className="w-full"
-                        onClick={() => openCommunityChat(community.id, community.created_by)}
+                        onClick={() => openCommunity(community.id)}
                       >
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                        Open Chat
+                        <Users className="h-4 w-4 mr-1" />
+                        View Community
                       </Button>
                     ) : (
                       <Button 

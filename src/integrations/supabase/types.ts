@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      comment_votes: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+          vote_type: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+          vote_type: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          vote_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_votes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          dislike_count: number
+          id: string
+          like_count: number
+          parent_id: string | null
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          dislike_count?: number
+          id?: string
+          like_count?: number
+          parent_id?: string | null
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          dislike_count?: number
+          id?: string
+          like_count?: number
+          parent_id?: string | null
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communities: {
         Row: {
           created_at: string
@@ -23,6 +106,7 @@ export type Database = {
           image_url: string | null
           is_public: boolean | null
           name: string
+          rules: string[] | null
           updated_at: string
         }
         Insert: {
@@ -33,6 +117,7 @@ export type Database = {
           image_url?: string | null
           is_public?: boolean | null
           name: string
+          rules?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -43,9 +128,48 @@ export type Database = {
           image_url?: string | null
           is_public?: boolean | null
           name?: string
+          rules?: string[] | null
           updated_at?: string
         }
         Relationships: []
+      }
+      community_bans: {
+        Row: {
+          banned_by: string
+          community_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          banned_by: string
+          community_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          banned_by?: string
+          community_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_bans_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       community_members: {
         Row: {
@@ -153,9 +277,95 @@ export type Database = {
         }
         Relationships: []
       }
+      post_votes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+          vote_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+          vote_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+          vote_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_votes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          comment_count: number
+          community_id: string
+          content: string | null
+          created_at: string
+          dislike_count: number
+          id: string
+          is_pinned: boolean
+          like_count: number
+          media_urls: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_count?: number
+          community_id: string
+          content?: string | null
+          created_at?: string
+          dislike_count?: number
+          id?: string
+          is_pinned?: boolean
+          like_count?: number
+          media_urls?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_count?: number
+          community_id?: string
+          content?: string | null
+          created_at?: string
+          dislike_count?: number
+          id?: string
+          is_pinned?: boolean
+          like_count?: number
+          media_urls?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           blood_type: string | null
           created_at: string
           date_of_birth: string | null
@@ -170,6 +380,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           blood_type?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -184,6 +395,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           blood_type?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -197,6 +409,76 @@ export type Database = {
           weight_kg?: number | null
         }
         Relationships: []
+      }
+      reports: {
+        Row: {
+          comment_id: string | null
+          community_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          post_id: string | null
+          reason: string
+          report_type: string
+          reported_user_id: string | null
+          reporter_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          comment_id?: string | null
+          community_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          post_id?: string | null
+          reason: string
+          report_type: string
+          reported_user_id?: string | null
+          reporter_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          comment_id?: string | null
+          community_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          post_id?: string | null
+          reason?: string
+          report_type?: string
+          reported_user_id?: string | null
+          reporter_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       search_history: {
         Row: {
